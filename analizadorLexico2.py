@@ -1,8 +1,8 @@
 
+import sys
+
 
 ALPHABET_SIZE = 256
-
-NUMBERS = "0123456789"
 
 RESERVED_WORDS = {
     "AbsoluteValue",
@@ -37,33 +37,6 @@ RESERVED_WORDS = {
     "with",
     "places",
     "nothing"
-}
-
-SPECIAL_CHARS_REGEX = r'[A-Za-z][A-Za-z0-9_]*'
-NUMBERS_REGEX = r'[0-9]+'
-FLOAT_REGEX = r'[0-9]+\.[0-9]+'
-
-OPERATOR_SYMBOLS_TOKENS = {
-    "-": "minus",
-    ",": "comma",
-    ";": "semicolon",
-    "!=": "neq",
-    "?": "question_mark",
-    ".": "period",
-    "(": "opening_par",
-    ")": "closing_par",
-    "[": "opening_bra",
-    "]": "closing_bra",
-    "*": "times",
-    "/": "div",
-    "%": "mod",
-    "+": "plus",
-    "<": "less",
-    "<=": "leq",
-    "=": "assign",
-    "==": "equal",
-    ">": "greater",
-    ">=": "geq",
 }
 
 class Token:
@@ -109,6 +82,83 @@ class Automata():
   #Permite llevar de un estado a otro por medio de un elemento.
   def addArista(self, key1, c, key2):
     self.estados[key1].aristas[ord(c)] = key2 
+
+class Analizador(object):
+
+    def __init__(self, automata, codigo):
+      self.codigo = codigo
+
+      self.scanner = 0
+      self.fila = 1
+      self.columna = 1
+      self.lexema = ""
+
+      self.automata = automata
+      self.estado = automata.getInit()
+
+
+    def isReserved(self, nombreLexema):
+      for x in RESERVED_WORDS:
+        if nombreLexema == x:
+          return True
+      return False
+
+    
+    def getNextToken(self):
+      while(self.lector < len(self.codigo)):
+        
+        # Leer el caracter y mirar el indice de transición
+        c = self.codigo[self.lector]
+        index = self.estado.aristas[ord(c)]
+
+        # Si llegamos al final del input, leer un salto de linea
+        if self.lector == len(self.codigo)-1:
+          index = self.estado.aristas[10]
+
+        # Verificar que exista transacción
+        if index == -1:
+          print(">>> Error lexico (linea: " + str(self.fila) + ", posicion: " + str(self.columna-len(self.lexema)) + ")")
+          return -1
+        else:
+          self.estado = self.automata.vertices[int(index)]
+
+        # Actualizar los valores de fila y columna
+        if (self.estado.key != 4 and self.estado.key != 5 and self.estado.key != 6 and self.estado.key != 10 and self.estado.key != 14 and self.estado.key != 19 and self.estado.key != 22):
+          if self.estado.key != 7 and c == chr(10):
+              self.fila = self.fila + 1
+              self.columna = 1
+          else:
+            self.columna = self.columna + 1
+
+        # Actualizar el valor de la cadena leida
+        self.lexema = self.lexema + c
+
+        # Reiniciar el valor de la cadena
+        if self.estado.key == 0:
+          self.lexema = ""
+
+        # Si llegamos a un estado de aceptación
+        if self.estado.accepted == 1:
+          # Datos del token
+          tokenTipo = ""
+          tokenLexema = ""
+          tokenFila = 0
+          tokenColumna = 0
+          
+          # Aumentar o disminuir la posición sobre la que se está leyendo la cadena de entrada
+          if self.estado.key != 4 and self.estado.key != 5 and self.estado.key != 6 and self.estado.key != 10 and self.estado.key != 14 and self.estado.key != 19 and self.estado.key != 22:
+            self.lector = self.lector + 1
+          else:
+            if self.estado.key == 5:
+              self.lexema = self.lexema[:-2]
+              self.lector = self.lector - 1
+              self.columna = self.columna - 1
+            else:
+              self.lexema = self.lexema[:-1]
+
+          # Obtener posición inicial del lexema  
+
+
 
 
 
@@ -216,7 +266,7 @@ automata.addArista(0, chr(61), 28)
 automata.addArista(28, chr(61), 33)
 
 # !=
-automata.addArista(0, chr(33)+chr(61), 35)
+#automata.addArista(0, chr(33)+chr(61), 35) Ajustar la negacion!!!!
 
 # < 
 automata.addArista(0, chr(60), 13)
@@ -284,7 +334,6 @@ automata.addArista(0, " ", 0)
 
 
 input = sys.stdin.read()
-input = "Put$"
-newAnalizadorLexico = lexerAnalyser(automata, input)
+newAnalizadorLexico = Analizador(automata, input)
 
      
