@@ -47,7 +47,7 @@ class Token:
         self.columna = columna
 
     def mostrarToken(self):
-        print(self.tipo, self.valor, self.fila, self.columna)
+        print("<"+ str(self.tipo)+","+str(self.valor)+","+str(self.fila)+","+str(self.columna)+">")
 
 
 #Se definen los estados que crea un automata para el análisis de léxemas
@@ -74,21 +74,30 @@ class Automata():
   def getInit(self):
     return self.estados[0]
 
-  def addEstado(self, tipoToken, accepted):
-    newEstado = Estado(self.cantidadEstados, tipoToken, accepted)
+  def addEstado(self, tipoToken, aceptado):
+    newEstado = Estado(self.cantidadEstados, tipoToken, aceptado)
     self.estados.append(newEstado)
     self.cantidadEstados = self.cantidadEstados + 1
 
   #Permite llevar de un estado a otro por medio de un elemento.
   def addArista(self, key1, c, key2):
     self.estados[key1].aristas[ord(c)] = key2 
+  
+  def printAut(self):
+    for x in self.estados:
+      print("Estado:", x.key)
+      for i in range(ALPHABET_SIZE):
+        if x.aristas[i] != 0:
+          print("   Arista:", x.aristas[i], chr(i))
+      if x.tipoToken != "":
+        print("  ", x.tipoToken)
 
 class Analizador(object):
 
     def __init__(self, automata, codigo):
       self.codigo = codigo
 
-      self.scanner = 0
+      self.scanner = 0 
       self.fila = 1
       self.columna = 1
       self.lexema = ""
@@ -104,236 +113,177 @@ class Analizador(object):
       return False
 
     
-    def getNextToken(self):
-      while(self.lector < len(self.codigo)):
-        
-        # Leer el caracter y mirar el indice de transición
-        c = self.codigo[self.lector]
-        index = self.estado.aristas[ord(c)]
-
-        # Si llegamos al final del input, leer un salto de linea
-        if self.lector == len(self.codigo)-1:
-          index = self.estado.aristas[10]
-
-        # Verificar que exista transacción
-        if index == -1:
-          print(">>> Error lexico (linea: " + str(self.fila) + ", posicion: " + str(self.columna-len(self.lexema)) + ")")
-          return -1
-        else:
-          self.estado = self.automata.vertices[int(index)]
-
-        # Actualizar los valores de fila y columna
-        if (self.estado.key != 4 and self.estado.key != 5 and self.estado.key != 6 and self.estado.key != 10 and self.estado.key != 14 and self.estado.key != 19 and self.estado.key != 22):
-          if self.estado.key != 7 and c == chr(10):
-              self.fila = self.fila + 1
-              self.columna = 1
-          else:
-            self.columna = self.columna + 1
-
-        # Actualizar el valor de la cadena leida
-        self.lexema = self.lexema + c
-
-        # Reiniciar el valor de la cadena
-        if self.estado.key == 0:
-          self.lexema = ""
-
-        # Si llegamos a un estado de aceptación
-        if self.estado.accepted == 1:
-          # Datos del token
-          tokenTipo = ""
-          tokenLexema = ""
-          tokenFila = 0
-          tokenColumna = 0
-          
-          # Aumentar o disminuir la posición sobre la que se está leyendo la cadena de entrada
-          if self.estado.key != 4 and self.estado.key != 5 and self.estado.key != 6 and self.estado.key != 10 and self.estado.key != 14 and self.estado.key != 19 and self.estado.key != 22:
-            self.lector = self.lector + 1
-          else:
-            if self.estado.key == 5:
-              self.lexema = self.lexema[:-2]
-              self.lector = self.lector - 1
-              self.columna = self.columna - 1
-            else:
-              self.lexema = self.lexema[:-1]
-
-          # Obtener posición inicial del lexema  
-
-
-
-
 
 # se crea el automata
 automata = Automata()
 automata.addEstado("", 0) #0
 automata.addEstado("", 0) #1
-automata.addEstado("", 0) #2 
-automata.addEstado("", 0) #3 
-automata.addEstado("tkn_float", 1) #4
-automata.addEstado("tkn_period", 1) #5 #tener en cuenta
-automata.addEstado("tkn_integer", 1) #6
-automata.addEstado("", 0) #7
-automata.addEstado("tkn_str", 1) #8
+automata.addEstado("id", 1) #2
+automata.addEstado("", 0) #3
+automata.addEstado("", 0) #4
+automata.addEstado("", 0) #5
+automata.addEstado("tkn_float", 1) #6
+automata.addEstado("tkn_integer", 1) #7
+automata.addEstado("tkn_integer", 1) #8
+
+###  Parte automata que genera ids y tkn_float o tkn_integer
+
+
+#ascii para pasar del estado 1 al 2 
+for i in range(256):
+  automata.addArista(1, chr(i), 2)
+
+#Letras mayúsculas
+
+for i in range(65,91):
+  automata.addArista(0, chr(i), 1)
+
+  #bucle de letras mayusculas y se sobreescribe las aristas de estado 1
+  automata.addArista(1, chr(i), 1)
+
+#Letras minúsculas
+for i in range(97, 123):
+   automata.addArista(0, chr(i), 1)
+
+   #bucle de letras minúsculas y se sobreescribe las aristas de estado 1
+   automata.addArista(1, chr(i), 1)
+
+# caracter "_" para ids
+automata.addArista(1, chr(95),1)
+
+### Parte para identificar tkn de números
+
+for i in range(256):
+  automata.addArista(3, chr(i), 7)
+
+#números
+for i in range(48,58):
+  automata.addArista(0, chr(i),3)
+
+  #bucle de números
+  automata.addArista(3, chr(i),3)
+
+# caracter "." para floats
+automata.addArista(3, chr(46),4)
+
+#letras para despues de leer un punto o para depues de leer un número
+for i in range(256):
+  automata.addArista(4, chr(i), 8)
+  automata.addArista(5, chr(i), 6)
+
+#número para después de leer un punto
+for i in range(48,58):
+  automata.addArista(4, chr(i),5)
+
+  #bucle de números
+  automata.addArista(5, chr(i),5)
+
 automata.addEstado("", 0) #9
-automata.addEstado("id", 1) #10
-automata.addEstado("", 0) #11 se borra
-automata.addEstado("tkn_assign", 1) #12
-automata.addEstado("", 0) #13
+automata.addEstado("tkn_equal", 1) #10
+automata.addEstado("tkn_assign", 1) #11
+automata.addEstado("", 0) #12
+automata.addEstado("tkn_leq", 1) #13
 automata.addEstado("tkn_less", 1) #14 
-automata.addEstado("", 0) #15 se borra
-automata.addEstado("token_dif", 1) #16 se borra
-automata.addEstado("tkn_leq", 1) #17
+automata.addEstado("", 0) #15
+automata.addEstado("tkn_geq", 1) #16
+automata.addEstado("tkn_greater", 1) #17
 automata.addEstado("", 0) #18
-automata.addEstado("tkn_greater", 1) #19 #tener en ceunta que el = puede estar en ambos caminos. Considerar quitarlo del ASCCI
-automata.addEstado("tkn_geq", 1) #20
-automata.addEstado("", 0) #21
-automata.addEstado("tkn_div", 1) #22
-automata.addEstado("", 0) #23
-automata.addEstado("tkn_comment", 1) #24
+automata.addEstado("tkn_neq", 1) #19
+
+#ASCII para despues de leer un =
+for i in range(256):
+  automata.addArista(9, chr(i), 11)
+  automata.addArista(12, chr(i), 14)
+  automata.addArista(15, chr(i), 17)
+
+# caracter "="
+automata.addArista(0, chr(61),9)
+
+#caracter "<"
+automata.addArista(0, chr(60),12)
+
+#caracter ">"
+automata.addArista(0, chr(62),15)
+
+#caracter "!"
+automata.addArista(0, chr(33),18)
+
+# Se agregan las segundas partes de los operadores para verificar
+automata.addArista(9, chr(61),10) # "=="
+automata.addArista(12, chr(61), 13) #"<="
+automata.addArista(15, chr(61), 16) #">="
+automata.addArista(18, chr(61), 19) #"!="
+
+
+
+## parte de automata para identificar caracteres especiales de lenguaje
+automata.addEstado("tkn_period", 1) #20
+automata.addEstado("tkn_comma", 1) #21
+automata.addEstado("tkn_semicolon", 1) #22
+automata.addEstado("tkn_closing_bra", 1) #23
+automata.addEstado("tkn_opening_bra", 1) #24
 automata.addEstado("tkn_opening_par", 1) #25
 automata.addEstado("tkn_closing_par", 1) #26
-automata.addEstado("tkn_plus", 1) #27
-automata.addEstado("", 0) #28
-automata.addEstado("tkn_minus", 1) #29
-automata.addEstado("tkn_closing_bra", 1) #30
-automata.addEstado("tkn_opening_bra", 1) #31
-automata.addEstado("tkn_times", 1) #32
-automata.addEstado("tkn_equal", 1) #33
-automata.addEstado("tkn_mod", 1) #34
-automata.addEstado("tkn_neq", 1) #35 
-automata.addEstado("tkn_semicolon", 1) #36
-automata.addEstado("tkn_comma", 1) #37
-automata.addEstado("tkn_question_mark", 1) #38 OJO
+automata.addEstado("tkn_minus", 1) #27
+automata.addEstado("tkn_plus", 1) #28
+automata.addEstado("tkn_times", 1) #29
+automata.addEstado("tkn_mod", 1) #30
+automata.addEstado("tkn_question_mark", 1) #31
 
-#NUMEROS
-#Se agrega al estado 0 del automata las aristas que permiten pasar del estado "" a "" con UN número.
-for i in range(48,58):
-  automata.addArista(0, chr(i), 1)
-  automata.addArista(1, chr(i), 1)
-  automata.addArista(2, chr(i), 3)
-  automata.addArista(3, chr(i), 3)
+# caracter "."
+automata.addArista(0, chr(46),20)
+# caracter ","
+automata.addArista(0, chr(44),21)
+# caracter ";"
+automata.addArista(0, chr(59),22)
+# caracter "]"
+automata.addArista(0, chr(93),23)
+# caracter "["
+automata.addArista(0, chr(91),24)
+# caracter "("
+automata.addArista(0, chr(40),25)
+# caracter ")"
+automata.addArista(0, chr(41),26)
+# caracter "-"
+automata.addArista(0, chr(45),27)
+# caracter "+"
+automata.addArista(0, chr(43),28)
+# caracter "*"
+automata.addArista(0, chr(42),29)
+# caracter "%"
+automata.addArista(0, chr(37),30)
+# caracter "?"
+automata.addArista(0, chr(63),31)
 
-#ASCII
-#Se agregan todas los caracteres de ASCII al estado 1 para llegar al estado 6 (tkn_integer)
+### parte del automata para encontrar comentarios o string
+
+automata.addEstado("", 0) #32
+automata.addEstado("tkn_div", 1) #33
+automata.addEstado("", 0) #34
+automata.addEstado("tkn_comment", 1) #35
+automata.addEstado("", 0) #36
+automata.addEstado("tkn_str", 1) #37
+
+# caracter "/"
+automata.addArista(0, chr(47),32)
+
+#caracter " " "
+automata.addArista(0, chr(34),36)
+
 for i in range(256):
-  automata.addArista(1, chr(i), 6)
-  automata.addArista(2, chr(i), 5)
-  automata.addArista(3, chr(i), 4)
-  automata.addArista(7, chr(i), 7)
-  automata.addArista(13, chr(i), 14)
-  automata.addArista(18, chr(i), 19) 
-  automata.addArista(28,chr(i),12)  #assing
-  automata.addArista(21, chr(i), 22)
-  automata.addArista(23, chr(i), 23)
- 
-#PUNTO
-#Se toma en cuenta para los token de tipo flotante.
-automata.addArista(1, chr(46), 2)
+  automata.addArista(32, chr(i),33)
 
-#Manejo Strings ""
-# " 
-automata.addArista(0, chr(34), 7)
-#Se agrega estado para finalizar el str y llega al estado (tkn_str)
-automata.addArista(7, chr(34), 8)
+# caracter "/"
+automata.addArista(32, chr(47),34)
 
-#letras en mayúscula a estado "" y bucle de estos
-for i in range(65, 91):
-  automata.addArista(0, chr(i), 9)
-  automata.addArista(9, chr(i), 9)
-
-#letras en minuscula a estado "" y bucle de estos
-for i in range(97, 123):
-  automata.addArista(0, chr(i), 9)
-  automata.addArista(9, chr(i), 9)
-
-#NÚMEROS
-#Bucle de números para nombrar un id
-for i in range(48,58):
-  automata.addArista(9, chr(i), 9)
-
-#ASCII
-#todos los caracteres van al estado de id
+#ASCII para leer caracteres luego de iniciar un comentrio
 for i in range(256):
-  automata.addArista(9, chr(i), 10)
+  automata.addArista(34, chr(i),34)
 
-#Caracteres especiales:
+automata.addArista(34, chr(10), 35)
 
-# _
-automata.addArista(9, chr(95), 9)
-# =
-automata.addArista(0, chr(61), 28)
+#ASCII para leer caracteres luego de iniciar un string
+for i in range(256):
+  automata.addArista(36, chr(i),36)
 
-# ==
-automata.addArista(28, chr(61), 33)
-
-# !=
-#automata.addArista(0, chr(33)+chr(61), 35) Ajustar la negacion!!!!
-
-# < 
-automata.addArista(0, chr(60), 13)
-
-# <=
-automata.addArista(13, chr(61), 17)
-
-# >
-automata.addArista(0, chr(62), 18)
-
-# >=
-automata.addArista(18, chr(61), 20)
-
-# /
-automata.addArista(0,  chr(92), 21)
-
-# /
-automata.addArista(21, chr(92), 23)
-
-#LF nueva linea para comprobar que es un comentario
-automata.addArista(23, chr(10), 24)
-
-# (
-automata.addArista(0, chr(40), 25)
-
-# )
-automata.addArista(0, chr(41), 26)
-
-# +
-automata.addArista(0, chr(43), 27)
-
-# -
-automata.addArista(0, chr(45), 29) 
-
-# ]
-automata.addArista(0, chr(93), 30)
-
-# [
-automata.addArista(0, chr(91), 31)
-
-# *
-automata.addArista(0, chr(42), 32)
-
-# %
-automata.addArista(0, chr(37), 34) 
-
-# ;
-automata.addArista(0,chr(59), 36)
-
-# ,
-automata.addArista(0, chr(44), 37)
-
-# ,
-automata.addArista(0, chr(44), 38)
-
-
-#Salto de linea
-automata.addArista(0, chr(10), 0)
-
-automata.addArista(0, chr(13), 0) # ?
-
-# cadena vacía
-automata.addArista(0, " ", 0) 
-
-
-
-input = sys.stdin.read()
-newAnalizadorLexico = Analizador(automata, input)
-
-     
+automata.addArista(36, chr(34),37)
