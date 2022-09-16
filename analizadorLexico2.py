@@ -1,6 +1,6 @@
-
+from operator import ne
+import re
 import sys
-
 
 ALPHABET_SIZE = 256
 
@@ -47,7 +47,10 @@ class Token:
         self.columna = columna
 
     def mostrarToken(self):
-        print("<"+ str(self.tipo)+","+str(self.valor)+","+str(self.fila)+","+str(self.columna)+">")
+      if (self.valor == None):
+        return "<"+ str(self.tipo)+","+str(self.fila)+","+str(self.columna)+">"
+      else:
+        return "<"+ str(self.tipo)+","+str(self.valor)+","+str(self.fila)+","+str(self.columna)+">"
 
 
 #Se definen los estados que crea un automata para el análisis de léxemas
@@ -83,14 +86,6 @@ class Automata():
   def addArista(self, key1, c, key2):
     self.estados[key1].aristas[ord(c)] = key2 
   
-  def printAut(self):
-    for x in self.estados:
-      print("Estado:", x.key)
-      for i in range(ALPHABET_SIZE):
-        if x.aristas[i] != 0:
-          print("   Arista:", x.aristas[i], chr(i))
-      if x.tipoToken != "":
-        print("  ", x.tipoToken)
 
 class Analizador(object):
 
@@ -129,6 +124,10 @@ automata.addEstado("tkn_integer", 1) #8
 ###  Parte automata que genera ids y tkn_float o tkn_integer
 
 
+automata.addArista(0, chr(32), 0)
+#automata.addArista(0, chr(36), 0)
+automata.addArista(0, chr(10), 0)
+
 #ascii para pasar del estado 1 al 2 
 for i in range(256):
   automata.addArista(1, chr(i), 2)
@@ -159,6 +158,7 @@ for i in range(256):
 #números
 for i in range(48,58):
   automata.addArista(0, chr(i),3)
+  automata.addArista(1, chr(i), 1)
 
   #bucle de números
   automata.addArista(3, chr(i),3)
@@ -263,6 +263,18 @@ automata.addEstado("", 0) #34
 automata.addEstado("tkn_comment", 1) #35
 automata.addEstado("", 0) #36
 automata.addEstado("tkn_str", 1) #37
+automata.addEstado("", 0) #38
+automata.addEstado("id", 1) #39
+automata.addEstado("", 0) #40
+
+
+for i in range(256):
+  automata.addArista(38, chr(47), 39)
+
+
+automata.addArista(1, chr(47), 38)
+automata.addArista(38, chr(47), 40)
+
 
 # caracter "/"
 automata.addArista(0, chr(47),32)
@@ -286,4 +298,154 @@ automata.addArista(34, chr(10), 35)
 for i in range(256):
   automata.addArista(36, chr(i),36)
 
+
 automata.addArista(36, chr(34),37)
+
+def getNextToken(aut,lineas):
+    while(aut.scanner < len(aut.codigo)):
+      
+      
+      # Leer el caracter y mirar el indice de transición
+      caracter_actual = aut.codigo[aut.scanner]
+      ind = ord(caracter_actual)
+      if ind == 8217:
+        ind = 39        
+
+      #Se lee el estado al que la arista lleva.
+      index = aut.estado.aristas[ind]
+
+      # Si llegamos al final del input, leer un salto de linea
+      if aut.scanner == len(aut.codigo)-1:
+        index = aut.estado.aristas[10]
+
+      # Verificar que exista transacción
+      if index == -1:
+        print("kk")
+        print(">>> Error lexico (linea: " + str(aut.fila) + ", posicion: " + str(aut.columna-len(aut.lexema)) + ")")
+        return -1
+      else:
+        #Se actualiza el estado al que lleva la arista
+        aut.estado = aut.automata.estados[int(index)]
+
+      # Actualizar los valores de fila y columna para cuando hay estados qaue necesitan de un caracter siguiente para determinar el  tipo de lexema
+      if (aut.estado.key != 11 and aut.estado.key != 14 and aut.estado.key != 17 and aut.estado.key != 2 and aut.estado.key != 7 and aut.estado.key != 8 and aut.estado.key != 6 and aut.estado.key != 33 ):
+    
+        #si el caracter es un salto  de linea y un string vacion aumenta la fila y aumenta la columna
+        if aut.estado.key != 36 and caracter_actual == chr(10): #pendiente
+            aut.fila = aut.fila + 1
+            aut.columna = 1
+        else:
+          aut.columna = aut.columna + 1
+
+      # Actualizar el valor de la cadena leida
+      aut.lexema = aut.lexema + caracter_actual
+
+      # Reiniciar el valor de la cadena luego de encontrar un token
+      if aut.estado.key == 0:
+        aut.lexema = ""
+
+      # Si llegamos a un estado de aceptación
+      if aut.estado.aceptado == 1:
+        # Datos del token
+
+        
+        # Aumentar o disminuir la posición sobre la que se está leyendo la cadena de entrada
+        if aut.estado.key != 11 and aut.estado.key != 14 and aut.estado.key != 17 and aut.estado.key != 2 and aut.estado.key != 7 and aut.estado.key != 8 and aut.estado.key != 6 and aut.estado.key != 33 :
+          aut.scanner = aut.scanner + 1
+        else:
+          if aut.estado.key == 5 or aut.estado.key == 40:
+            aut.lexema = aut.lexema[:-2]
+            aut.scanner = aut.scanner - 1
+            aut.columna = aut.columna - 1
+          else:
+            aut.lexema = aut.lexema[:-1]
+
+        # Obtener posición inicial del lexema  
+        tokenFila = aut.fila
+        tokenColumna = aut.columna-len(aut.lexema)
+        tokenTipo = ""
+        tokenLexema = ""
+
+        # Crear Token
+        if aut.estado.tipoToken == "id":
+          # Si es una palabra reservada
+          if aut.isReserved(aut.lexema):
+            tokenTipo = aut.lexema
+            aut.estado = aut.automata.getInit()
+            aut.lexema = ""
+            crearToken = Token(tokenTipo,None, tokenFila, tokenColumna)
+            return crearToken
+          # Si no es palabra reservada
+          else:
+            tokenTipo = "id"
+          
+          tokenLexema = aut.lexema
+
+        #se evalua los el si es cadena que imprima el formato sin comilla
+        elif aut.estado.tipoToken == "tkn_str":
+          tokenTipo = aut.estado.tipoToken
+          tokenLexema = aut.lexema[:-1][1:]
+        
+        #Se evalua que el token no sea un comentario para que pueda ser retornado
+        elif aut.estado.tipoToken != "tkn_comment":
+          tokenTipo = aut.estado.tipoToken
+          tokenLexema = aut.lexema
+
+        elif aut.estado.tipoToken == "tkn_comment":
+         if aut.fila in lineas:
+           crearToken = Token("tkn_div",None, tokenFila, tokenColumna)
+           aut.scanner = aut.columna-len(aut.lexema)
+           aut.columna = aut.columna-len(aut.lexema)+1
+           aut.estado = aut.automata.getInit()
+           aut.lexema = ""
+           return crearToken
+
+        # Retornar token si no es un comentario
+        if aut.estado.tipoToken != "tkn_comment":
+
+          if aut.estado.tipoToken == "tkn_str" or aut.estado.tipoToken == "id" or aut.estado.tipoToken == "tkn_integer" or aut.estado.tipoToken == "tkn_float":
+            crearToken = Token(tokenTipo, tokenLexema, tokenFila, tokenColumna)
+            aut.estado = aut.automata.getInit()
+            aut.lexema = ""
+            return crearToken
+          else:
+            # Regresar al estado inicial
+            aut.estado = aut.automata.getInit()
+            aut.lexema = ""
+            crearToken = Token(tokenTipo, None, tokenFila, tokenColumna)
+            return crearToken
+
+        # Regresar al estado inicial
+        aut.estado = aut.automata.getInit()
+        aut.lexema = ""
+
+      else:
+        aut.scanner = aut.scanner + 1
+
+    # Si llegamos al final del  input, entonces:
+    if aut.scanner == len(aut.codigo):
+      if aut.estado.key != 0:
+        print(">>> Error lexico (linea: " + str(aut.fila) + ", posicion: " + str(aut.columna-len(aut.lexema)) + ")")
+        return -1
+
+      crearToken = Token("EOF", "EOF", aut.fila + 1, 1)
+      return -1
+    
+
+#input = sys.stdin.read()
+input ='float i\n\nfor i = 0.0; i < 5; i = i + 1\n   Put i to output\n   Put " es un número.\" to output $'
+
+
+newAnalizadorLexico = Analizador(automata, input)
+pos = 0
+lineas = set()
+while pos < len(input):
+  token = getNextToken(newAnalizadorLexico,lineas)
+  if(token == -1):
+    pos = len(input) + 1
+  else:
+    pos = newAnalizadorLexico.scanner
+    tokenNuevo = token.mostrarToken().replace("\n", "\\n")
+    tokenNuevo = token.mostrarToken().replace( r'\'', "\\")
+    print(tokenNuevo)
+    lineas.add(token.fila)
