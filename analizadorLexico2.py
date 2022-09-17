@@ -266,6 +266,7 @@ automata.addEstado("tkn_str", 1) #37
 automata.addEstado("", 0) #38
 automata.addEstado("id", 1) #39
 automata.addEstado("", 0) #40
+automata.addEstado("", 0) #41
 
 
 for i in range(256):
@@ -309,10 +310,15 @@ def getNextToken(aut,lineas):
       caracter_actual = aut.codigo[aut.scanner]
       ind = ord(caracter_actual)
       if ind == 8217:
-        ind = 39        
+        ind = 39  
 
       #Se lee el estado al que la arista lleva.
-      index = aut.estado.aristas[ind]
+      index = aut.estado.aristas[ind] 
+
+      # print("caracter que se está leyendo", caracter_actual)
+      # print("codigo ASCII", ind)
+
+      
 
       # Si llegamos al final del input, leer un salto de linea
       if aut.scanner == len(aut.codigo)-1:
@@ -320,7 +326,7 @@ def getNextToken(aut,lineas):
 
       # Verificar que exista transacción
       if index == -1:
-        print("kk")
+     #   print("kk")
         print(">>> Error lexico (linea: " + str(aut.fila) + ", posicion: " + str(aut.columna-len(aut.lexema)) + ")")
         return -1
       else:
@@ -337,8 +343,15 @@ def getNextToken(aut,lineas):
         else:
           aut.columna = aut.columna + 1
 
+
       # Actualizar el valor de la cadena leida
       aut.lexema = aut.lexema + caracter_actual
+
+      if ind == 92:
+        if(aut.codigo[aut.scanner + 1] == '"'):
+            aut.columna = aut.columna + 1
+            aut.scanner = aut.scanner + 1
+            aut.lexema = aut.lexema + '"'
 
       # Reiniciar el valor de la cadena luego de encontrar un token
       if aut.estado.key == 0:
@@ -353,7 +366,7 @@ def getNextToken(aut,lineas):
         if aut.estado.key != 11 and aut.estado.key != 14 and aut.estado.key != 17 and aut.estado.key != 2 and aut.estado.key != 7 and aut.estado.key != 8 and aut.estado.key != 6 and aut.estado.key != 33 :
           aut.scanner = aut.scanner + 1
         else:
-          if aut.estado.key == 5 or aut.estado.key == 40:
+          if aut.estado.key == 5:
             aut.lexema = aut.lexema[:-2]
             aut.scanner = aut.scanner - 1
             aut.columna = aut.columna - 1
@@ -433,7 +446,8 @@ def getNextToken(aut,lineas):
     
 
 #input = sys.stdin.read()
-input ='float i\n\nfor i = 0.0; i < 5; i = i + 1\n   Put i to output\n   Put " es un número.\" to output $'
+input = input()
+input = input +'$'
 
 
 newAnalizadorLexico = Analizador(automata, input)
@@ -445,7 +459,8 @@ while pos < len(input):
     pos = len(input) + 1
   else:
     pos = newAnalizadorLexico.scanner
-    tokenNuevo = token.mostrarToken().replace("\n", "\\n")
-    tokenNuevo = token.mostrarToken().replace( r'\'', "\\")
+    tokenNuevo = token.mostrarToken().replace("\n", "\\n")  
+    # tokenNuevo = token.mostrarToken().replace("\t", "\\t")
+    # tokenNuevo = token.mostrarToken().replace("\r", "\\r")
     print(tokenNuevo)
     lineas.add(token.fila)
