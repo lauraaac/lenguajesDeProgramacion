@@ -1,3 +1,5 @@
+from ast import operator
+from cgi import print_form
 from operator import ne
 import re
 import sys
@@ -224,8 +226,10 @@ class Analizador(object):
               self.lexema = ""
               return crearToken
             else:
-              self.fila = self.fila + 1
-              self.columna = 1
+              if self.lexema[-1] == chr(10):
+
+                self.fila = self.fila + 1
+                self.columna = 1
 
           # Retornar token si no es un comentario
           if self.estado.tipoToken != "tkn_comment":
@@ -257,7 +261,7 @@ class Analizador(object):
           print(">>> Error lexico (linea: " + str(self.fila) + ", posicion: " + str(self.columna-len(self.lexema)) + ")")
           return -1
 
-        crearToken = Token("EOF", "EOF", self.fila + 1, 1)
+        crearToken = Token("EOF", "EOF", self.fila+1, 1)
         return crearToken
 
 # se crea el automata
@@ -484,6 +488,14 @@ class AnalizadorSintactico(object):
   def __init__(self, gram):
     self.gramatica = gram
     self.token = ""
+    self.espacios = "" 
+  
+  # def getSort(self, sets):
+      
+  #   pri_element = list(map(lambda x : x[1],sets))
+  #   for e in range(len(sets)):
+    
+  #   for e in range (len(pri_element)):
 
   def getGram(self):
     return self.gramatica
@@ -598,7 +610,7 @@ class AnalizadorSintactico(object):
     if episol in prim:
       return (prim - {episol}) | self.siguientes(noTerminal, set())
     else:
-      return prim  
+      return prim
 
   def buildPredictionSets(self):
     for A in self.gramatica.noTerminales:
@@ -625,12 +637,27 @@ class AnalizadorSintactico(object):
     # print("valor token leido", self.token.valor)
     # print("tipo token", self.token.tipo)
     if self.token.tipo == tokenEsperado:
-      print("EMPAREJADO: ", self.token.mostrarToken() )
+      #print(" EMPAREJADO: ", self.token.mostrarToken())
       self.token = newAnalizadorLexico.getNextToken(lineas)
       return self.token
     else:
-      print("<" + str(self.token.fila) + ":" + str(self.token.columna) + ">" + 
-            " Error sintactico: se encontro: " + chr(34) + self.setImpr(self.token.tipo) + chr(34) + "; se esperaba: " + chr(34) + self.setImpr(tokenEsperado) + chr(34) + ".")
+
+      if self.token.tipo == "tkn_float" or self.token.tipo == "tkn_integer"or self.token.tipo == "id" or self.token.tipo == "tkn_str": 
+        string = self.token.valor
+        if self.token.tipo == "tkn_str":
+          string = string.replace("\n", "\\n")
+          string = string.replace( r'\'', "\\")
+          string = string.replace("\n", "\\n")  
+
+        print("<" + str(self.token.fila) + ":" + str(self.token.columna) + ">" + 
+          " Error sintactico: se encontro: " + chr(34) + string + chr(34) + "; se esperaba: " + chr(34) + self.setImpr(tokenEsperado) + chr(34) + ".")
+      elif self.token.tipo == "EOF":
+        print("<" + str(self.token.fila) + ":" + str(self.token.columna) + ">" + 
+          " Error sintactico: se encontro final de archivo; se esperaba: ", end="")
+      else:
+        print("<" + str(self.token.fila) + ":" + str(self.token.columna) + ">" + 
+          " Error sintactico: se encontro: " + chr(34) + self.setImpr(self.token.tipo) + chr(34) + "; se esperaba: " + chr(34) + self.setImpr(tokenEsperado) + chr(34) + ".")
+
       return -1
 
   def A(self, noTerminal, lineas):
@@ -638,11 +665,19 @@ class AnalizadorSintactico(object):
     caso = True
     sets = set()
     # Evaluar para cada una de la reglas
+    self.espacios =  self.espacios + "    "
+    #print(self.espacios +  noTerminal.nombre +"{")
     for r in noTerminal.reglas:
-
+      #print(self.espacios, end ="")
+      #for i in r:
+      #  if type(i) is NoTerminal:
+      #    print(i.nombre, end = "")
+      #  else:
+      #    print(i, end = "")
+      #print("")
       setPredict = self.predict(noTerminal, r)
 
-      #print("NO TERMINAL",noTerminal.nombre)
+      #print(self.espacios + "token: ", self.getToken().mostrarToken())
       if (self.getToken().tipo in setPredict) and caso:
 
         # Recorrer los elementos de la regla
@@ -664,19 +699,76 @@ class AnalizadorSintactico(object):
 
     # Si no entro a ninguno de los casos
     if caso:
-      if  self.token.tipo != "EOF":
-
-        # Imprimir el error sintactico
+      #if  (self.token.tipo != "EOF") or (self.token.tipo == "EOF" and noTerminal.nombre == "LISTA_COMANDOS_PROGRAMA2_NOTNULL") or (self.token.tipo == "EOF" and noTerminal.nombre == "LISTA_COMANDOS_PROGRAMA1"):
+      #print("tióooo", self.token.tipo)
+      # Imprimir el error sintactico
+      if self.token.tipo == "tkn_float" or self.token.tipo == "tkn_integer" or self.token.tipo == "id" or self.token.tipo == "tkn_str": 
+        string = self.token.valor
+        if self.token.tipo == "tkn_str":
+          string = string.replace("\n", "\\n")
+          string = string.replace( r'\'', "\\")
+          string = string.replace("\n", "\\n") 
         print("<" + str(self.token.fila) + ":" + str(self.token.columna) + ">" + 
-              " Error sintactico: se encontro kk: " + chr(34) + self.setImpr(self.token.tipo) + chr(34) + "; se esperaba: ", end="")
-        sets = list(sets)
-        sets.sort()
-        stringSets = ""
-        for x in sets:
-          stringSets = stringSets + chr(34) + self.setImpr(x) + chr(34) + ", "
-        print(stringSets[:-2] + ".")
+          " Error sintactico: se encontro: " + chr(34) + string + chr(34) + "; se esperaba: ", end="")
+      elif self.token.tipo == "EOF":
+        print("<" + str(self.token.fila) + ":" + str(self.token.columna) + ">" + 
+          " Error sintactico: se encontro final de archivo; se esperaba: ", end="")
+      
+      else:
+        print("<" + str(self.token.fila) + ":" + str(self.token.columna) + ">" + 
+          " Error sintactico: se encontro: " + chr(34) + self.setImpr(self.token.tipo) + chr(34) + "; se esperaba: ", end="")
+      sets = list(sets)
+      stringSets = ""
+      operators = [
+        "tkn_equal",
+        "tkn_assign", 
+        "tkn_geq",
+        "tkn_greater",
+        "tkn_leq",
+        "tkn_less",
+        "tkn_neq",
+        "tkn_period",
+        "tkn_semicolon",
+        "tkn_closing_bra",
+        "tkn_opening_bra",
+        "tkn_opening_par",
+        "tkn_closing_par",
+        "tkn_minus",
+        "tkn_plus",
+        "tkn_times",
+        "tkn_mod",
+        "tkn_question_mark",
+        "tkn_div"
+         ] 
+      sortedsWords = []
+      sortedOperators = []
+      #print("BEFORE SORTING", sets)
+      for x in sets:
+        if x in operators:
+          sortedOperators.append(x)
+        else:
+          sortedsWords.append(self.setImpr(x))
 
+      
+      sortedsWords = sorted(sortedsWords, key = str.lower)
+      ##print("WORDS",sortedsWords)
+      sortedOperators = sorted(sortedOperators)
+      ##print("OPERATORS",sortedOperators)
+
+      for x in sortedsWords:
+        #print("word", x)
+        stringSets = stringSets + chr(34) + x + chr(34) + ", "
+
+      for x in sortedOperators:
+        #print("operator", x)
+        stringSets = stringSets + chr(34) + self.setImpr(x) + chr(34) + ", "
+
+      print(stringSets[:-2] + ".")
       return -1
+
+    #self.espacios =  self.espacios[:-4]
+
+   # print(self.espacios + "}")
 
 
 #Se crea miniGramatica
@@ -684,257 +776,264 @@ class AnalizadorSintactico(object):
 gramaticaCoral = Gramatica()
 
 PROGRAMA = gramaticaCoral.addNoTerminal("PROGRAMA")
+
+LISTA_COMANDOS_PROGRAMA = gramaticaCoral.addNoTerminal("LISTA_COMANDOS_PROGRAMA")
+LISTA_COMANDOS_PROGRAMA1 = gramaticaCoral.addNoTerminal("LISTA_COMANDOS_PROGRAMA1")
+LISTA_COMANDOS_PROGRAMA2_NOTNULL = gramaticaCoral.addNoTerminal("LISTA_COMANDOS_PROGRAMA2_NOTNULL")
+LISTA_COMANDOS_PROGRAMA2 = gramaticaCoral.addNoTerminal("LISTA_COMANDOS_PROGRAMA2")
+LISTA_COMANDOS_PROGRAMA3 = gramaticaCoral.addNoTerminal("LISTA_COMANDOS_PROGRAMA3")
+LISTA_COMANDOS_PROGRAMA4 = gramaticaCoral.addNoTerminal("LISTA_COMANDOS_PROGRAMA4")
+LISTA_COMANDOS_PROGRAMA5 = gramaticaCoral.addNoTerminal("LISTA_COMANDOS_PROGRAMA5")
+LISTA_COMANDOS_PROGRAMA6 = gramaticaCoral.addNoTerminal("LISTA_COMANDOS_PROGRAMA6")
+LISTA_COMANDOS_PROGRAMA7 = gramaticaCoral.addNoTerminal("LISTA_COMANDOS_PROGRAMA7")
+LISTA_COMANDOS_PROGRAMA8 = gramaticaCoral.addNoTerminal("LISTA_COMANDOS_PROGRAMA8")
+
+COMANDOS_PROGRAMA = gramaticaCoral.addNoTerminal("COMANDOS_PROGRAMA")
+LISTA_FUNCIONES = gramaticaCoral.addNoTerminal("LISTA_FUNCIONES")
+LISTA_FUNCIONES2 = gramaticaCoral.addNoTerminal("LISTA_FUNCIONES2")
+LISTA_FUNCIONES3 = gramaticaCoral.addNoTerminal("LISTA_FUNCIONES3")
+FUNCION = gramaticaCoral.addNoTerminal("FUNCION")
+TIPO_VAR_FUN = gramaticaCoral.addNoTerminal("TIPO_VAR_FUN")
+PARAMS_DECL_FUN = gramaticaCoral.addNoTerminal("PARAMS_DECL_FUN")
+PARAMS_DECL_FUN2 = gramaticaCoral.addNoTerminal("PARAMS_DECL_FUN2")
+MAIN = gramaticaCoral.addNoTerminal("MAIN")
+
 DECLARACION = gramaticaCoral.addNoTerminal("DECLARACION")
-DECLARACION2 = gramaticaCoral.addNoTerminal("DECLARACION2")
 TIPO_VAR = gramaticaCoral.addNoTerminal("TIPO_VAR")
 ARRAY = gramaticaCoral.addNoTerminal("ARRAY")
-COMANDOS1 = gramaticaCoral.addNoTerminal("COMANDOS1")
+ARRAY_DEF = gramaticaCoral.addNoTerminal("ARRAY_DEF")
+
 ASIGNACION = gramaticaCoral.addNoTerminal("ASIGNACION")
 ASIGNACION2 = gramaticaCoral.addNoTerminal("ASIGNACION2")
-PUT = gramaticaCoral.addNoTerminal("PUT")
-PUT2 = gramaticaCoral.addNoTerminal("PUT2")
-OPERACION = gramaticaCoral.addNoTerminal("OPERACION")
-OPERACION2 = gramaticaCoral.addNoTerminal("OPERACION2")
-OP1 = gramaticaCoral.addNoTerminal("OP1")
-VAR = gramaticaCoral.addNoTerminal("VAR")
-SIGN = gramaticaCoral.addNoTerminal("SIGN")
-TKN_INT = gramaticaCoral.addNoTerminal("TKN_INT")
-TKN_FLT = gramaticaCoral.addNoTerminal("TKN_FLT")
-ID1  = gramaticaCoral.addNoTerminal("ID1")
-NOT = gramaticaCoral.addNoTerminal("NOT")
-OPERATOR = gramaticaCoral.addNoTerminal("OPERATOR")
-EXPRESION = gramaticaCoral.addNoTerminal("EXPRESION")
+ASIGNACION3 = gramaticaCoral.addNoTerminal("ASIGNACION3")
+LIST_ASIGNACION = gramaticaCoral.addNoTerminal("LIST_ASIGNACION")
+LIST_ASIGNACION2 = gramaticaCoral.addNoTerminal("LIST_ASIGNACION2")
 GET = gramaticaCoral.addNoTerminal("GET")
-GET2 = gramaticaCoral.addNoTerminal("GET2")
+
+PUT = gramaticaCoral.addNoTerminal("PUT")
+WITH   = gramaticaCoral.addNoTerminal("WITH")
+LIST_PUT_VAR = gramaticaCoral.addNoTerminal("LIST_PUT_VAR")
+
+IF = gramaticaCoral.addNoTerminal("IF")
+ELSE_IF = gramaticaCoral.addNoTerminal("ELSE_IF")
+ELSE = gramaticaCoral.addNoTerminal("ELSE")
+
+WHILE = gramaticaCoral.addNoTerminal("WHILE")
+FOR = gramaticaCoral.addNoTerminal("FOR")
+
+SEED_RANDOM_NUMBER = gramaticaCoral.addNoTerminal("SEED_RANDOM_NUMBER")
+
+
+
+OPERACION = gramaticaCoral.addNoTerminal("OPERACION")
+OPERACION1 = gramaticaCoral.addNoTerminal("EXPRESION1")
+T = gramaticaCoral.addNoTerminal("T")
+LISTA_E = gramaticaCoral.addNoTerminal("LISTA_E")
+E = gramaticaCoral.addNoTerminal("E")
+OPERACION_LOG = gramaticaCoral.addNoTerminal("OPERACION_LOG")
+T_LOG = gramaticaCoral.addNoTerminal("T_LOG")
+OPERACION1_LOG = gramaticaCoral.addNoTerminal("OPERACION1_LOG")
+LISTA_E_LOG = gramaticaCoral.addNoTerminal("LISTA_E_LOG")
+E_LOG = gramaticaCoral.addNoTerminal("E_LOG")
+
+SQUARE_ROOT = gramaticaCoral.addNoTerminal("SQUARE_ROOT")
+RAISE_TO_POWER = gramaticaCoral.addNoTerminal("RAISE_TO_POWER")
+ABSOLUTE_VALUE = gramaticaCoral.addNoTerminal("ABSOLUTE_VALUE")
+RANDOM_NUMBER = gramaticaCoral.addNoTerminal("RANDOM_NUMBER")
+
+ID1  = gramaticaCoral.addNoTerminal("ID1")
+LIS_ID1  = gramaticaCoral.addNoTerminal("LIS_ID1")
+
 DECLA_FUN = gramaticaCoral.addNoTerminal("DECLA_FUN")
+ARRAY_ASIG = gramaticaCoral.addNoTerminal("ARRAY_ASIG")
 PARAMS = gramaticaCoral.addNoTerminal("PARAMS")
 PARAMS1 = gramaticaCoral.addNoTerminal("PARAMS1")
-PARAMS2 = gramaticaCoral.addNoTerminal("PARAMS2")
-FUNCION = gramaticaCoral.addNoTerminal("FUNCION")
-CALL_FUNCION = gramaticaCoral.addNoTerminal("CALL_FUNCION")
-WHILE = gramaticaCoral.addNoTerminal("WHILE")
-WHILE_PARAM = gramaticaCoral.addNoTerminal("WHILE_PARAM")
-IF = gramaticaCoral.addNoTerminal("IF")
-IF_PARAM = gramaticaCoral.addNoTerminal("IF_PARAM")
-ELSE = gramaticaCoral.addNoTerminal("ELSE")
-ELSE_IF = gramaticaCoral.addNoTerminal("ELSE_IF")
-FOR = gramaticaCoral.addNoTerminal("FOR")
-FOR_PARAMS = gramaticaCoral.addNoTerminal("FOR_PARAMS")
-ARRAY_ASIG = gramaticaCoral.addNoTerminal("ARRAY_ASIG")
-LIST_TIPOS_ASIGNACION = gramaticaCoral.addNoTerminal("LIST_TIPOS_ASIGNACION")
-LIST_PUT_VAR = gramaticaCoral.addNoTerminal("LIST_PUT_VAR")
-LIST_ASIGNACION = gramaticaCoral.addNoTerminal("LIST_ASIGNACION")
-COMANDOS_PROGRAMA = gramaticaCoral.addNoTerminal("COMANDOS_PROGRAMA")
-MAIN = gramaticaCoral.addNoTerminal("MAIN")
-LOGIC_OPERATION = gramaticaCoral.addNoTerminal("LOGIC_OPERATION")
-LOGIC_OPERATION2 = gramaticaCoral.addNoTerminal("LOGIC_OPERATION2")
-LOGIC_OPERATION3 = gramaticaCoral.addNoTerminal("LOGIC_OPERATION3")
-LOGIC_OPERATOR = gramaticaCoral.addNoTerminal("LOGIC_OPERATOR")
-LOGIC_OPERATOR2 = gramaticaCoral.addNoTerminal("LOGIC_OPERATOR2")
-LOGIC_AND_OR = gramaticaCoral.addNoTerminal("LOGIC_AND_OR")
-LISTA_OPERACIONES_SUB_PROCESO_IF = gramaticaCoral.addNoTerminal("LISTA_OPERACIONES_SUB_PROCESO")
-LISTA_OPERACIONES_SUB_PROCESO_WHILE_FOR = gramaticaCoral.addNoTerminal("LISTA_OPERACIONES_SUB_PROCESO2")
-BLOQUE_IF = gramaticaCoral.addNoTerminal("BLOQUE_IF")
-SQUARE_ROOT   = gramaticaCoral.addNoTerminal("SQUARE_ROOT")
-RAISE_TO_POWER   = gramaticaCoral.addNoTerminal("RAISE_TO_POWER")
-ABSOLUTE_VALUE   = gramaticaCoral.addNoTerminal("ABSOLUTE_VALUE")
-RANDOM_NUMBER   = gramaticaCoral.addNoTerminal("RANDOM_NUMBER")
-SEED_RANDOM_NUMBER   = gramaticaCoral.addNoTerminal("SEED_RANDOM_NUMBER")
-WITH   = gramaticaCoral.addNoTerminal("WITH")
 
-#GRAMATICA FUNCIONES BUILTINS
-gramaticaCoral.addRuleToNoTerminal(SQUARE_ROOT, ["SquareRoot","tkn_opening_par", OPERACION2, "tkn_closing_par"])
-#gramaticaCoral.addRuleToNoTerminal(SQUARE_ROOT, [episol])
-gramaticaCoral.addRuleToNoTerminal(RAISE_TO_POWER, ["RaiseToPower","tkn_opening_par", OPERACION2,"tkn_comma",OPERACION2,"tkn_closing_par"])
-#gramaticaCoral.addRuleToNoTerminal(RAISE_TO_POWER, [episol])
-gramaticaCoral.addRuleToNoTerminal(ABSOLUTE_VALUE, ["AbsoluteValue","tkn_opening_par", OPERACION2, "tkn_closing_par"])
-#gramaticaCoral.addRuleToNoTerminal(ABSOLUTE_VALUE, [episol])
-gramaticaCoral.addRuleToNoTerminal(RANDOM_NUMBER, ["RandomNumber","tkn_opening_par", OPERACION2,"tkn_comma",OPERACION2,"tkn_closing_par"])
-#gramaticaCoral.addRuleToNoTerminal(RANDOM_NUMBER, [episol])
-gramaticaCoral.addRuleToNoTerminal(SEED_RANDOM_NUMBER, ["SeedRandomNumbers","tkn_opening_par", OPERACION2,"tkn_closing_par"])
-#gramaticaCoral.addRuleToNoTerminal(SEED_RANDOM_NUMBER, [episol])
-#GRAMATICA FUNCION
-gramaticaCoral.addRuleToNoTerminal(FUNCION,["Function", MAIN]) #ajustar funcion por no terminal
-gramaticaCoral.addRuleToNoTerminal(MAIN, ["Main", "tkn_opening_par","tkn_closing_par","returns", "nothing" ])
-#gramaticaCoral.addRuleToNoTerminal(FUNCION, [episol ])
-
-gramaticaCoral.addRuleToNoTerminal(PROGRAMA, [COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [DECLARACION,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [ASIGNACION,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [PUT,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [FUNCION]) #TODO: pendiente
-gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [IF,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [GET,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [WHILE,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [FOR,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [SEED_RANDOM_NUMBER,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [episol])
+OPERATOR = gramaticaCoral.addNoTerminal("OPERATOR")
 
 
-#LISTADO CASOS PARA EL SUBSTAMENT DE IF
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_IF, [DECLARACION,COMANDOS_PROGRAMA,BLOQUE_IF])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_IF, [ASIGNACION,COMANDOS_PROGRAMA,BLOQUE_IF])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_IF, [PUT,COMANDOS_PROGRAMA,BLOQUE_IF])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_IF, [GET,COMANDOS_PROGRAMA,BLOQUE_IF])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_IF, [IF,COMANDOS_PROGRAMA,BLOQUE_IF])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_IF, [WHILE,COMANDOS_PROGRAMA,BLOQUE_IF])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_IF, [FOR,COMANDOS_PROGRAMA,BLOQUE_IF])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_IF, [SEED_RANDOM_NUMBER,COMANDOS_PROGRAMA,BLOQUE_IF])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_IF, [BLOQUE_IF])
+# LISTAS
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA, [COMANDOS_PROGRAMA, LISTA_COMANDOS_PROGRAMA])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA, [episol])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA1, [COMANDOS_PROGRAMA, LISTA_COMANDOS_PROGRAMA1])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA1, [episol])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA2_NOTNULL, [COMANDOS_PROGRAMA, LISTA_COMANDOS_PROGRAMA2])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA2, [COMANDOS_PROGRAMA, LISTA_COMANDOS_PROGRAMA2])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA2, [episol])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA3, [COMANDOS_PROGRAMA, LISTA_COMANDOS_PROGRAMA3])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA3, [episol])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA4, [COMANDOS_PROGRAMA, LISTA_COMANDOS_PROGRAMA4])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA4, [episol])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA5, [COMANDOS_PROGRAMA, LISTA_COMANDOS_PROGRAMA5])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA5, [episol])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA6, [COMANDOS_PROGRAMA, LISTA_COMANDOS_PROGRAMA6])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA6, [episol])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA7, [COMANDOS_PROGRAMA, LISTA_COMANDOS_PROGRAMA7])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA7, [episol])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA8, [COMANDOS_PROGRAMA, LISTA_COMANDOS_PROGRAMA8])
+gramaticaCoral.addRuleToNoTerminal(LISTA_COMANDOS_PROGRAMA8, [episol])
 
-#LISTADO CASOS PARA EL SUBSTAMENT DE WHILE Y FOR
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_WHILE_FOR, [DECLARACION,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_WHILE_FOR, [ASIGNACION,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_WHILE_FOR, [PUT,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_WHILE_FOR, [GET,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_WHILE_FOR, [IF,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_WHILE_FOR, [WHILE,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_WHILE_FOR, [FOR,COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(LISTA_OPERACIONES_SUB_PROCESO_WHILE_FOR, [SEED_RANDOM_NUMBER,COMANDOS_PROGRAMA,BLOQUE_IF])
+# PORGRAMA
+gramaticaCoral.addRuleToNoTerminal(PROGRAMA, ["Function", LISTA_FUNCIONES, "EOF"])
+gramaticaCoral.addRuleToNoTerminal(PROGRAMA, [LISTA_COMANDOS_PROGRAMA, "EOF"])
+gramaticaCoral.addRuleToNoTerminal(LISTA_FUNCIONES, [FUNCION, LISTA_FUNCIONES2])
+gramaticaCoral.addRuleToNoTerminal(LISTA_FUNCIONES2, ["Function", LISTA_FUNCIONES3])
+gramaticaCoral.addRuleToNoTerminal(LISTA_FUNCIONES3, [LISTA_FUNCIONES])
+gramaticaCoral.addRuleToNoTerminal(LISTA_FUNCIONES3, [MAIN])
 
-#GRAMATICA PARA IF
-gramaticaCoral.addRuleToNoTerminal(IF,["if",IF_PARAM])
-#gramaticaCoral.addRuleToNoTerminal(IF_PARAM,["tkn_opening_par",LOGIC_OPERATION2, "tkn_closing_par", LISTA_OPERACIONES_SUB_PROCESO_IF])
-gramaticaCoral.addRuleToNoTerminal(IF_PARAM,[LOGIC_OPERATION2, LISTA_OPERACIONES_SUB_PROCESO_IF])
+# Comandos
+gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [DECLARACION])
+gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [ASIGNACION])
+gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [PUT])
+gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [IF])
+gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [WHILE])
+gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [FOR])
+gramaticaCoral.addRuleToNoTerminal(COMANDOS_PROGRAMA, [SEED_RANDOM_NUMBER])
 
-#GRAMATICA PARA ELSE
-gramaticaCoral.addRuleToNoTerminal(ELSE, ["else",COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(ELSE, [episol])
+# Funcion
+gramaticaCoral.addRuleToNoTerminal(FUNCION, ["id", "tkn_opening_par", PARAMS_DECL_FUN, "tkn_closing_par", "returns", TIPO_VAR_FUN, LISTA_COMANDOS_PROGRAMA1])
+gramaticaCoral.addRuleToNoTerminal(TIPO_VAR_FUN, [DECLARACION])
+gramaticaCoral.addRuleToNoTerminal(TIPO_VAR_FUN, ["nothing"])
+gramaticaCoral.addRuleToNoTerminal(PARAMS_DECL_FUN, [TIPO_VAR, "id", PARAMS_DECL_FUN2])
+gramaticaCoral.addRuleToNoTerminal(PARAMS_DECL_FUN, [episol])
+gramaticaCoral.addRuleToNoTerminal(PARAMS_DECL_FUN2, ["tkn_comma", TIPO_VAR, "id", PARAMS_DECL_FUN2] )
+gramaticaCoral.addRuleToNoTerminal(PARAMS_DECL_FUN2, [episol])
 
-#GRAMATICA PARA ELSEIF
-gramaticaCoral.addRuleToNoTerminal(ELSE_IF, ["elseif", IF_PARAM])
-gramaticaCoral.addRuleToNoTerminal(ELSE_IF, [episol])
+# Main
+gramaticaCoral.addRuleToNoTerminal(MAIN, ["Main", "tkn_opening_par", "tkn_closing_par", "returns", "nothing", LISTA_COMANDOS_PROGRAMA2_NOTNULL])
 
-gramaticaCoral.addRuleToNoTerminal(BLOQUE_IF, [ELSE_IF,ELSE])
-gramaticaCoral.addRuleToNoTerminal(BLOQUE_IF, [episol])
-
-#GRAMATICA PARA WHILE
-gramaticaCoral.addRuleToNoTerminal(WHILE,["while",WHILE_PARAM])
-#gramaticaCoral.addRuleToNoTerminal(WHILE_PARAM, ["tkn_opening_par",LOGIC_OPERATION2, "tkn_closing_par", LISTA_OPERACIONES_SUB_PROCESO_WHILE_FOR])
-gramaticaCoral.addRuleToNoTerminal(WHILE_PARAM, [LOGIC_OPERATION2, LISTA_OPERACIONES_SUB_PROCESO_WHILE_FOR])
-
-#GRAMATICA PARA FOR
-gramaticaCoral.addRuleToNoTerminal(FOR, ["for", FOR_PARAMS])
-gramaticaCoral.addRuleToNoTerminal(FOR_PARAMS, [ASIGNACION, "tkn_semicolon", LOGIC_OPERATION2,"tkn_semicolon",ASIGNACION,LISTA_OPERACIONES_SUB_PROCESO_WHILE_FOR])
-
-
-
+# Declaracion
 gramaticaCoral.addRuleToNoTerminal(DECLARACION, [TIPO_VAR, ARRAY, "id"])
+gramaticaCoral.addRuleToNoTerminal(ARRAY, ["array", "tkn_opening_par", ARRAY_DEF, "tkn_closing_par"])
 gramaticaCoral.addRuleToNoTerminal(TIPO_VAR, ["integer"])
 gramaticaCoral.addRuleToNoTerminal(TIPO_VAR, ["float"])
-gramaticaCoral.addRuleToNoTerminal(ARRAY, ["array"])
 gramaticaCoral.addRuleToNoTerminal(ARRAY, [episol])
-gramaticaCoral.addRuleToNoTerminal(LIST_TIPOS_ASIGNACION, ["id", ARRAY_ASIG])
-gramaticaCoral.addRuleToNoTerminal(ARRAY_ASIG, ["tkn_opening_bra",OPERACION2 ,"tkn_closing_bra"])
-gramaticaCoral.addRuleToNoTerminal(ARRAY_ASIG, [episol])
 
-# EJ: x = 3+5 o x= Get next input
-gramaticaCoral.addRuleToNoTerminal(LIST_ASIGNACION, [OPERACION2])
+gramaticaCoral.addRuleToNoTerminal(ARRAY_DEF, ["tkn_integer"])
+gramaticaCoral.addRuleToNoTerminal(ARRAY_DEF, ["tkn_question_mark"])
+
+# Asignacion
+gramaticaCoral.addRuleToNoTerminal(ASIGNACION, ["id", ASIGNACION2]) 
+gramaticaCoral.addRuleToNoTerminal(ASIGNACION2, [LIST_ASIGNACION2, "tkn_assign", LIST_ASIGNACION]) 
+gramaticaCoral.addRuleToNoTerminal(ASIGNACION2, ["tkn_opening_par", PARAMS, "tkn_closing_par"]) 
+
+gramaticaCoral.addRuleToNoTerminal(ASIGNACION3, ["id", LIST_ASIGNACION2, "tkn_assign", LIST_ASIGNACION]) 
+
+
+gramaticaCoral.addRuleToNoTerminal(LIST_ASIGNACION2, ["tkn_opening_bra", OPERACION, "tkn_closing_bra"])
+gramaticaCoral.addRuleToNoTerminal(LIST_ASIGNACION2, ["tkn_period", "size"])
+gramaticaCoral.addRuleToNoTerminal(LIST_ASIGNACION2, [episol])
+
+gramaticaCoral.addRuleToNoTerminal(LIST_ASIGNACION, [OPERACION])
 gramaticaCoral.addRuleToNoTerminal(LIST_ASIGNACION, [GET])
-#gramaticaCoral.addRuleToNoTerminal(LIST_ASIGNACION, [ID1])
 
-#EJ: x = something o x[2] = something
-gramaticaCoral.addRuleToNoTerminal(ASIGNACION,[LIST_TIPOS_ASIGNACION, "tkn_assign",LIST_ASIGNACION]) #!añadir GET 
+# Get
+gramaticaCoral.addRuleToNoTerminal(GET, ["Get", "next", "input"])
 
-
-#EJ: Put "str" to output o Put kk to output o Put 3+4 to output
-#gramaticaCoral.addRuleToNoTerminal(LIST_PUT_VAR, ["id"])
+# Put
+gramaticaCoral.addRuleToNoTerminal(PUT, ["Put", LIST_PUT_VAR, "to", "output", WITH])
 gramaticaCoral.addRuleToNoTerminal(LIST_PUT_VAR, ["tkn_str"])
 gramaticaCoral.addRuleToNoTerminal(LIST_PUT_VAR, [OPERACION])
-
-gramaticaCoral.addRuleToNoTerminal(WITH, ["with",TKN_INT,"places"])
+gramaticaCoral.addRuleToNoTerminal(WITH, ["with", OPERACION, "decimal", "places"])
 gramaticaCoral.addRuleToNoTerminal(WITH, [episol])
-gramaticaCoral.addRuleToNoTerminal(PUT, ["Put", LIST_PUT_VAR, "to", "output", WITH])
 
-gramaticaCoral.addRuleToNoTerminal(VAR, [TKN_INT])
-gramaticaCoral.addRuleToNoTerminal(VAR, [TKN_FLT])
-gramaticaCoral.addRuleToNoTerminal(VAR, [ID1])
-gramaticaCoral.addRuleToNoTerminal(VAR, [SQUARE_ROOT])
-gramaticaCoral.addRuleToNoTerminal(VAR, [RAISE_TO_POWER])
-gramaticaCoral.addRuleToNoTerminal(VAR, [ABSOLUTE_VALUE])
-gramaticaCoral.addRuleToNoTerminal(VAR, [RANDOM_NUMBER])
-gramaticaCoral.addRuleToNoTerminal(TKN_INT, ["tkn_integer"])
-gramaticaCoral.addRuleToNoTerminal(TKN_FLT, ["tkn_float"])
+# If
+gramaticaCoral.addRuleToNoTerminal(IF, ["if", OPERACION_LOG, LISTA_COMANDOS_PROGRAMA3, ELSE_IF, ELSE])
+gramaticaCoral.addRuleToNoTerminal(ELSE_IF, ["elseif", OPERACION_LOG, LISTA_COMANDOS_PROGRAMA4])
+gramaticaCoral.addRuleToNoTerminal(ELSE_IF, [episol])
+gramaticaCoral.addRuleToNoTerminal(ELSE, ["else", LISTA_COMANDOS_PROGRAMA5])
+gramaticaCoral.addRuleToNoTerminal(ELSE, [episol])
 
-# EJ: id o id(3,5) o id(3%5,x) 
-gramaticaCoral.addRuleToNoTerminal(ID1, ["id", DECLA_FUN, ARRAY_ASIG])
+# While
+gramaticaCoral.addRuleToNoTerminal(WHILE, ["while", OPERACION_LOG, LISTA_COMANDOS_PROGRAMA6])
 
-#llamar funcion en asignacion
-gramaticaCoral.addRuleToNoTerminal(PARAMS, [OPERACION,PARAMS1])
-gramaticaCoral.addRuleToNoTerminal(PARAMS1, ["tkn_comma", OPERACION, PARAMS1 ])
-gramaticaCoral.addRuleToNoTerminal(PARAMS1, [episol ])
-gramaticaCoral.addRuleToNoTerminal(DECLA_FUN, ["tkn_opening_par", PARAMS, "tkn_closing_par", COMANDOS_PROGRAMA])
-gramaticaCoral.addRuleToNoTerminal(DECLA_FUN, [episol])
-#gramaticaCoral.addRuleToNoTerminal(CALL_FUNCION, ["id", "tkn_opening_par", PARAMS, "tkn_closing_par"])
+# For
+gramaticaCoral.addRuleToNoTerminal(FOR, ["for", ASIGNACION3, "tkn_semicolon", OPERACION_LOG, "tkn_semicolon", ASIGNACION3, LISTA_COMANDOS_PROGRAMA7])
+
+# Seed_Random_Number
+gramaticaCoral.addRuleToNoTerminal(SEED_RANDOM_NUMBER, ["SeedRandomNumbers", "tkn_opening_par", OPERACION, "tkn_closing_par"])
 
 
-gramaticaCoral.addRuleToNoTerminal(SIGN, ["tkn_plus"])
-gramaticaCoral.addRuleToNoTerminal(SIGN, ["tkn_minus"])
-gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_plus",OPERACION])
-gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_minus",OPERACION])
-gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_div",OPERACION])
-gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_mod",OPERACION])
-gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_times",OPERACION])
-gramaticaCoral.addRuleToNoTerminal(OPERATOR, [episol])
-gramaticaCoral.addRuleToNoTerminal(OPERACION, ["tkn_opening_par", OPERACION2, "tkn_closing_par",OPERATOR])
-gramaticaCoral.addRuleToNoTerminal(OPERACION2, ["tkn_opening_par", OPERACION2, "tkn_closing_par",OPERATOR])
-gramaticaCoral.addRuleToNoTerminal(OPERACION2, [SIGN, OPERACION])
-gramaticaCoral.addRuleToNoTerminal(OPERACION2, [VAR, OPERATOR])
-gramaticaCoral.addRuleToNoTerminal(OPERACION, [SIGN, OPERACION])
-gramaticaCoral.addRuleToNoTerminal(OPERACION, [VAR, OPERATOR])
-gramaticaCoral.addRuleToNoTerminal(OPERACION, [episol])
-gramaticaCoral.addRuleToNoTerminal(GET, ["Get", "next", "input"])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATION, ["not", "tkn_opening_par", LOGIC_OPERATION2,LOGIC_AND_OR, "tkn_closing_par", LOGIC_OPERATOR])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATION, [OPERACION, LOGIC_OPERATOR])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATION, [episol])
+# Operacion
 
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATION2, ["tkn_opening_par",LOGIC_OPERATION3,LOGIC_OPERATION2,LOGIC_AND_OR,"tkn_closing_par",LOGIC_OPERATOR])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATION2, ["not", "tkn_opening_par", LOGIC_OPERATION2,LOGIC_AND_OR, "tkn_closing_par", LOGIC_OPERATOR])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATION2, [OPERACION2, LOGIC_OPERATOR2,LOGIC_AND_OR])
+gramaticaCoral.addRuleToNoTerminal(OPERACION, [T, OPERACION1])
+gramaticaCoral.addRuleToNoTerminal(OPERACION1, [OPERATOR, T, OPERACION1])
+gramaticaCoral.addRuleToNoTerminal(OPERACION1, [episol])
+gramaticaCoral.addRuleToNoTerminal(T, [E, LISTA_E])
+gramaticaCoral.addRuleToNoTerminal(LISTA_E, [OPERATOR, E, LISTA_E])
+gramaticaCoral.addRuleToNoTerminal(LISTA_E, [episol])
 
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATION3, [OPERACION, LOGIC_OPERATOR2,LOGIC_AND_OR])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATION2, [episol])
-
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATOR, ["tkn_equal", LOGIC_OPERATION2])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATOR, ["tkn_geq",LOGIC_OPERATION2])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATOR, ["tkn_greater",LOGIC_OPERATION2])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATOR, ["tkn_neq",LOGIC_OPERATION2])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATOR, ["tkn_leq",LOGIC_OPERATION2])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATOR, ["tkn_less",LOGIC_OPERATION2])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATOR, [episol])
+gramaticaCoral.addRuleToNoTerminal(E, ["tkn_opening_par", OPERACION, "tkn_closing_par"]) 
+gramaticaCoral.addRuleToNoTerminal(E, [ID1])
+gramaticaCoral.addRuleToNoTerminal(E, ["tkn_integer"]) 
+gramaticaCoral.addRuleToNoTerminal(E, ["tkn_float"])  
+gramaticaCoral.addRuleToNoTerminal(E, ["tkn_minus", OPERACION]) 
+gramaticaCoral.addRuleToNoTerminal(E, ["tkn_plus", OPERACION]) 
+gramaticaCoral.addRuleToNoTerminal(E, [SQUARE_ROOT])
+gramaticaCoral.addRuleToNoTerminal(E, [RAISE_TO_POWER])
+gramaticaCoral.addRuleToNoTerminal(E, [ABSOLUTE_VALUE])
+gramaticaCoral.addRuleToNoTerminal(E, [RANDOM_NUMBER])
 
 
-gramaticaCoral.addRuleToNoTerminal(LOGIC_AND_OR, ["and",LOGIC_OPERATION2])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_AND_OR, ["or",LOGIC_OPERATION2])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_AND_OR, [episol])
+gramaticaCoral.addRuleToNoTerminal(OPERACION_LOG, [T_LOG, OPERACION1_LOG])
+gramaticaCoral.addRuleToNoTerminal(OPERACION1_LOG, [OPERATOR, T_LOG, OPERACION1_LOG])
+gramaticaCoral.addRuleToNoTerminal(OPERACION1_LOG, [episol])
+gramaticaCoral.addRuleToNoTerminal(T_LOG, [E_LOG, LISTA_E_LOG])
+gramaticaCoral.addRuleToNoTerminal(LISTA_E_LOG, [OPERATOR, E_LOG, LISTA_E_LOG])
+gramaticaCoral.addRuleToNoTerminal(LISTA_E_LOG, [episol])
 
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATOR2, ["tkn_equal", LOGIC_OPERATION])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATOR2, ["tkn_geq",LOGIC_OPERATION])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATOR2, ["tkn_greater",LOGIC_OPERATION])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATOR2, ["tkn_neq",LOGIC_OPERATION])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATOR2, ["tkn_leq",LOGIC_OPERATION])
-gramaticaCoral.addRuleToNoTerminal(LOGIC_OPERATOR2, ["tkn_less",LOGIC_OPERATION])
+gramaticaCoral.addRuleToNoTerminal(E_LOG, ["tkn_opening_par", OPERACION_LOG, "tkn_closing_par"]) 
+gramaticaCoral.addRuleToNoTerminal(E_LOG, ["not", "tkn_opening_par", OPERACION_LOG, "tkn_closing_par"])
+gramaticaCoral.addRuleToNoTerminal(E_LOG, [ID1])
+gramaticaCoral.addRuleToNoTerminal(E_LOG, ["tkn_integer"]) 
+gramaticaCoral.addRuleToNoTerminal(E_LOG, ["tkn_float"])  
+gramaticaCoral.addRuleToNoTerminal(E_LOG, ["tkn_minus", OPERACION_LOG]) 
+gramaticaCoral.addRuleToNoTerminal(E_LOG, ["tkn_plus", OPERACION_LOG]) 
+gramaticaCoral.addRuleToNoTerminal(E_LOG, [SQUARE_ROOT])
+gramaticaCoral.addRuleToNoTerminal(E_LOG, [RAISE_TO_POWER])
+gramaticaCoral.addRuleToNoTerminal(E_LOG, [ABSOLUTE_VALUE])
+gramaticaCoral.addRuleToNoTerminal(E_LOG, [RANDOM_NUMBER])
 
+gramaticaCoral.addRuleToNoTerminal(SQUARE_ROOT, ["SquareRoot", "tkn_opening_par", OPERACION, "tkn_closing_par"])
+gramaticaCoral.addRuleToNoTerminal(RAISE_TO_POWER, ["RaiseToPower", "tkn_opening_par", OPERACION, "tkn_comma", OPERACION, "tkn_closing_par"])
+gramaticaCoral.addRuleToNoTerminal(ABSOLUTE_VALUE, ["AbsoluteValue", "tkn_opening_par", OPERACION, "tkn_closing_par"])
+gramaticaCoral.addRuleToNoTerminal(RANDOM_NUMBER, ["RandomNumber", "tkn_opening_par", OPERACION, "tkn_comma", OPERACION,"tkn_closing_par"])
 
+gramaticaCoral.addRuleToNoTerminal(ID1, ["id", LIS_ID1])
+gramaticaCoral.addRuleToNoTerminal(LIS_ID1, [DECLA_FUN])
+gramaticaCoral.addRuleToNoTerminal(LIS_ID1, [ARRAY_ASIG])
+gramaticaCoral.addRuleToNoTerminal(LIS_ID1, [episol])
 
-#input = 'integer x Put "jaja" to output \n if ((3-5) < not(((3%4)== 3)) <= 5*(+-+-+9/x) == 0 or 2%(-+-+5) == 0)\n Put "vamos" to output \n elseif (x+3 < 3 and -(3)%(5) <= and -x+3 >= 5)\n Put 3+1 to output \n x = Get next input\n y = fun(x) y= 3*(x+ 4)%4 \n Put "eureka" to output \n else y[3%3] = Dios[0+y] + fun((3+2)) % prim()$' 
-#input = 'if ((3-5) < not((3%4== 3)) <= 5*(9/x) == 0 or 2%(-+-+5) == 0)\n Put "vamos" to output \n elseif (x+3 < 3 and 3%5 <= and -x+3 >= 5)\n Put 3+1 to output$'
-#input = 'integer kk \nkk = 0 \n   while (kk<=10) \n    Put kk to output Put "F" to output \n    if((k%2)==0 and not(k==4))     if(k==2)\n     x = kk \n    elseif(k==6) \n Put "x" to output \n x = fun(3,kk+3) \n y = Get next input while(y<x)\n z = y[2] + y[x+5] \n   for i=0; i>=10+p; i = i + 2 \n    Put "yep" to output \n    siu = Get next input$'
-input = 'x = AbsoluteValue(0) if (x==1) Put "kk" to output with 3 places$'
-print(input)
-#input ='y = kk(x)$'
-#input ='integer x$'
-#ojito con x(3 == 4 ?
-#input= 'if(not(3<5) and 3*5<= not(3+9==2)) Put "kk" to output $'
-#ajustar caso x= l[0]
+gramaticaCoral.addRuleToNoTerminal(DECLA_FUN, ["tkn_opening_par", PARAMS, "tkn_closing_par"])
+gramaticaCoral.addRuleToNoTerminal(ARRAY_ASIG, ["tkn_opening_bra", OPERACION ,"tkn_closing_bra"])
+
+gramaticaCoral.addRuleToNoTerminal(PARAMS, [OPERACION, PARAMS1])
+gramaticaCoral.addRuleToNoTerminal(PARAMS1, ["tkn_comma", OPERACION, PARAMS1])
+gramaticaCoral.addRuleToNoTerminal(PARAMS1, [episol])
+
+gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_div"])
+gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_mod"])
+gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_times"])
+gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_geq"])
+gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_greater"])
+gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_leq"])
+gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_less"])
+gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_plus"])
+gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_minus"])
+gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_neq"])
+gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_neq"])
+gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["tkn_equal"])
+gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["or"])
+gramaticaCoral.addRuleToNoTerminal(OPERATOR, ["and"])
+
+#input = 'for i = 0;\n    i < 5;\n\n                     i = i + 1\n   \n   Put i to output\n\n// ¡Ay! Olvidé declarar i\n\ninteger i\ntry_again(for_loop, i)\n\n// Menos mal que por ahora\n// No miramos la semántica\n\n$'
+input = sys.stdin.read()+ '$'
+
 lineas = set()
 newAnalizadorLexico = Analizador(automata, input)
 newAnalizadorSintactico = AnalizadorSintactico(gramaticaCoral)
 
 newAnalizadorSintactico.token = newAnalizadorLexico.getNextToken(lineas)
-#print(newAnalizadorSintactico.token.mostrarToken())
-#newAnalizadorSintactico.buildPredictionSets()
 respuesta = newAnalizadorSintactico.A(gramaticaCoral.getInit(), lineas)
-#print("respuesta", respuesta)
 if respuesta != -1:
-  print("El analisis sintactico ha finalizado exitosamente")
+  print("El analisis sintactico ha finalizado exitosamente.")
